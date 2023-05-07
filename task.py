@@ -7,6 +7,8 @@ from function import contains_amount
 from function import get_date
 from openpyxl import Workbook
 
+
+
 def open_nytimes(url,browser):
     #Opens the browser and loads the provided URL.
     
