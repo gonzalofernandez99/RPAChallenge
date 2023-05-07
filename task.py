@@ -6,9 +6,13 @@ from function import create_file_directory
 from function import contains_amount
 from function import get_date
 from openpyxl import Workbook
+import json
 
-
-
+def init_config(path):
+    with open(path, "r") as f:
+        config = json.load(f)
+    return config
+    
 def open_nytimes(url,browser):
     #Opens the browser and loads the provided URL.
     
@@ -166,11 +170,12 @@ def load_news(phrase, directory,browser):
 
 def main():
     browser = Selenium()
-    url = "https://www.nytimes.com/"
-    date_number = 2
-    pharase = "drink"
-    categories = "U.S.,New York,Business,World" 
-    directory = "output"
+    config=init_config("devdata\env.json")
+    url = config["URL"]
+    date_number = config["DATE_NUMBER"]
+    pharase = config["PHARASE"]
+    categories = config["CATEGORIES"] 
+    directory = config["DIRECTORY"] 
     try:
         today,last=get_date(date_number)
         open_nytimes(url,browser)
