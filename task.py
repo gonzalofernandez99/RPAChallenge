@@ -1,24 +1,19 @@
 from RPA.Browser.Selenium import Selenium
 import time
-import datetime
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
 import urllib.request
 import re
 from function import create_file_directory
 from function import contains_amount
+from function import get_date
 from openpyxl import Workbook
 
-## constant ##
-browser = Selenium()
-
-def open_nytimes(url):
+def open_nytimes(url,browser):
     #Opens the browser and loads the provided URL.
     
     browser.open_available_browser(url)
     browser.maximize_browser_window()
 
-def search_for(pharase): 
+def search_for(pharase,browser): 
     #Searches for the provided phrase on the website.
     
     button_search = "xpath://button[@data-test-id='search-button']"
@@ -30,22 +25,11 @@ def search_for(pharase):
     browser.input_text(input_pharase,pharase)
     browser.press_keys(input_pharase,"ENTER")
     
-def get_date(Number):
-    #Gets today's date and the date N months ago.
-    today = datetime.now()
 
-    if Number == 0 or Number == 1:
-        date = today.replace(day=1)
-    else:
-        months_ago = Number - 1
-        date = today.replace(day=1) - relativedelta(months=months_ago)
-        
-    formatted_date = date.strftime("%m/%d/%Y")
-    formatted_today = today.strftime('%m/%d/%Y')
-    return formatted_today,formatted_date
 
-def apply_date(today,date):
+def apply_date(today,date,browser):
     #Applies the date range in the search filter.
+    #Precondition: The current date and the date obtained in 'get_date' are entered as arguments.#
     
     button_date = "xpath://button[@data-testid='search-date-dropdown-a']"
     label_dates = "xpath://button[@aria-label='Specific Dates']"
@@ -65,8 +49,10 @@ def convert_string_to_list(Category):
     #Converts a comma-separated string of categories into a list.
     return ["Any"] if not Category else Category.split(',')
    
-def apply_section(category):
+def apply_section(category,browser):
     #Applies the provided sections to the search filter.
+    #Precondition: The categories in which the search is to be performed are entered#
+    #Postcondition: Returns the number of times the categories were successfully selected. If it remains at 0, it means that no valid category was selected#
     counter_section = 0
     list_category = convert_string_to_list(category)
     button_section = "xpath://button[@data-testid='search-multiselect-button']"
@@ -75,7 +61,7 @@ def apply_section(category):
     browser.wait_until_element_is_visible(button_section)
     browser.click_element(button_section)
     
-    time.sleep(2)
+    time.sleep(1)
     
     for section in list_category:
         input_seccion = f"xpath://span[text()='{section}']"
@@ -83,20 +69,21 @@ def apply_section(category):
             browser.wait_until_element_is_visible(input_seccion,timeout=1)
             browser.click_element(input_seccion)
             counter_section +=1
-        except Exception as e:
-            print(f"Error finding the section: {section} : {e}")
+        except Exception:
+            print(f"Error finding the section: {section}")
             
     return counter_section
     
 
-def click_show_more():
-    #Clicks the 'Show more' button until there are no more results.
-    time_out = 10
+def click_show_more(browser):
+    #Clicks the 'Show more' button until there are no more results.#
+    #Postcondition: If the 'Show More' button does not appear, it means that the entire page has already been loaded.#
+    timeout = 10
     show_more_button= "xpath://button[@data-testid='search-show-more-button']"
     
     time.sleep(2)
    
-    while(browser.is_element_enabled(show_more_button,time_out)):
+    while(browser.is_element_enabled(show_more_button,timeout)):
         browser.set_focus_to_element(show_more_button)
         browser.click_element(show_more_button)
         time.sleep(2)
@@ -122,65 +109,74 @@ def load_excel(pharase,directory,result):
             res["contains_money"]
             ])
         
-    # Save the Excel file
     wb.save(name_file)
       
-def load_news(pharase,directory):
-    #Loads the news and extracts relevant information.
-    
-    element_title = "xpath://h4[@class='css-2fgx4k']"
-    element_date = "xpath://span[@data-testid='todays-date']"
-    element_description = "xpath://p[@class='css-16nhkrn']"
-    element_img = "xpath://img[@class='css-rq4mmj']"
-    
-    result = []
-    click_show_more()
-    
-    browser.wait_until_page_contains_element(element_date)
-    titles = browser.find_elements(element_title)
-    descriptions = browser.find_elements(element_description)
-    imagenes = browser.find_elements(element_img)
-    dates = browser.find_elements(element_date)
-    
+def extract_news_data(titles, descriptions, images, dates, phrase, directory):
+    #Information is obtained to later load it into the Excel file. The images are also saved in the 'download_image' function#
+    #Precondition: All the necessary information from the news articles is entered as arguments#
+    #Postcondition: Returns the list with all the loaded data to be entered into the Excel file.#
+    news_data = []
+
     for i in range(len(titles)):
         title = titles[i].text
         description = descriptions[i].text
         date = dates[i+1].text
-        src_imagen = imagenes[i].get_attribute("src")
+        src_image = images[i].get_attribute("src")
         
-        name_file = create_file_directory(directory,pharase,"jpg")
-        print(name_file)
-        download_image(src_imagen, name_file)
+        name_file = create_file_directory(directory, phrase, "jpg")
+        download_image(src_image, name_file)
         
-        number_of_phrases = len(re.findall(pharase, title + description, re.IGNORECASE))
-        contains_money = contains_amount(title,description)
+        number_of_phrases = len(re.findall(phrase, title + description, re.IGNORECASE))
+        contains_money = contains_amount(title, description)
         
-        result.append({
-            "title":title,
-            "date":date,
-            "description":description,
-            "name_file":name_file,
-            "number_of_phrases":number_of_phrases,
-            "contains_money":contains_money
+        news_data.append({
+            "title": title,
+            "date": date,
+            "description": description,
+            "name_file": name_file,
+            "number_of_phrases": number_of_phrases,
+            "contains_money": contains_money
         })
-        
-    load_excel(pharase,directory,result)
 
-# Define a main() function that calls the other functions in order:
+    return news_data
+
+
+def load_news(phrase, directory,browser):
+    # Obtains all the necessary data from the news articles: title, description, images, and dates.#
+    #Precondition: Receives the used @phrase and the @directory as arguments where the files and images will be saved#
+    #Postcondition: Loads the information into the extract_news_data function and then saves it to an Excel file#
+
+    element_title = "xpath://h4[@class='css-2fgx4k']"
+    element_date = "xpath://span[@data-testid='todays-date']"
+    element_description = "xpath://p[@class='css-16nhkrn']"
+    element_img = "xpath://img[@class='css-rq4mmj']"
+
+    click_show_more(browser)
+    
+    browser.wait_until_page_contains_element(element_date)
+    titles = browser.find_elements(element_title)
+    descriptions = browser.find_elements(element_description)
+    images = browser.find_elements(element_img)
+    dates = browser.find_elements(element_date)
+    
+    news_data = extract_news_data(titles, descriptions, images, dates, phrase, directory)
+    load_excel(phrase, directory, news_data)
+
 def main():
+    browser = Selenium()
     url = "https://www.nytimes.com/"
-    date_number = 0
-    pharase = "Biden"
-    categories = "U.S.,New York,Business" 
+    date_number = 2
+    pharase = "drink"
+    categories = "U.S.,New York,Business,World" 
     directory = "output"
     try:
         today,last=get_date(date_number)
-        open_nytimes(url)
-        search_for(pharase)
-        apply_date(today,last)
-        counter_section=apply_section(categories)
+        open_nytimes(url,browser)
+        search_for(pharase,browser)
+        apply_date(today,last,browser)
+        counter_section=apply_section(categories,browser)
         if counter_section != 0:
-            load_news(pharase,directory)
+            load_news(pharase,directory,browser)
         else:
             print("No se ingreso ninguna categoria valida")
     except TimeoutError as te:
@@ -191,7 +187,5 @@ def main():
         
         browser.close_all_browsers()
     
-# Call the main() function, checking that we are running as a stand-alone script:
 if __name__ == "__main__":
     main()
-
