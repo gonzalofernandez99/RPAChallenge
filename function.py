@@ -12,7 +12,7 @@ def create_file_directory(path_directory,phrase,ext):
     hours_and_minutes = now.strftime('%H%M%S-%f')
     directory = path_directory+"\\"+phrase+"-"+date
     file = directory+"\\"+phrase+date+hours_and_minutes+"."+ext
-    Path(directory).mkdir(exist_ok=True)
+    Path(directory).mkdir(parents=True, exist_ok=True)
     
     return file
 
