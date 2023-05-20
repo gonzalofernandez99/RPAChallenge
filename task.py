@@ -5,9 +5,19 @@ import re
 from function import create_file_directory
 from function import contains_amount
 from function import get_date
-from openpyxl import Workbook
 import json
+from RPA.Excel.Files import Files
+from RPA.Tables import Tables
+import os
+from RPA.Robocorp.WorkItems import WorkItems
 
+class SectionNotFoundError(Exception):
+    pass
+
+def get_work_item(wi,key):
+    wi.get_input_work_item()
+    data = wi.get_work_item_variable(key)
+    return data
 
 def init_config(path):
     with open(path, "r") as f:
@@ -77,11 +87,8 @@ def apply_section(category,browser):
             browser.click_element(input_seccion)
             counter_section +=1
         except Exception:
-            print(f"Error finding the section: {section}")
-            
-    return counter_section
+            raise SectionNotFoundError(f"Error finding the section: {section}")
     
-
 def click_show_more(browser):
     #Clicks the 'Show more' button until there are no more results.#
     #Postcondition: If the 'Show More' button does not appear, it means that the entire page has already been loaded.#
@@ -101,22 +108,16 @@ def download_image(url, nombre_archivo):
 
 def load_excel(pharase,directory,result):
     #Creates and saves an Excel file with the search results.
+    ws = Files()
+    tables = Tables()
+    headers = ["title", "date", "description", "name_file", "number_of_phrases", "contains_money"]
     
     name_file = create_file_directory(directory,pharase,"xlsx")
-    wb = Workbook()
-    ws = wb.active
-    ws.append(["title", "date", "description", "name_file", "number_of_phrases", "contains_money"])
-    for res in result:
-        ws.append([
-            res["title"],
-            res ["date"],
-            res["description"],
-            res["name_file"],
-            res["number_of_phrases"],
-            res["contains_money"]
-            ])
-        
-    wb.save(name_file)
+    table = tables.create_table(data=result, columns=headers)
+    
+    ws.create_workbook(path=name_file,sheet_name=pharase,fmt="xlsx")
+    ws.append_rows_to_worksheet(content=table,name=pharase,header=True)
+    ws.save_workbook()
       
 def extract_news_data(titles, descriptions, images, dates, phrase, directory):
     #Information is obtained to later load it into the Excel file. The images are also saved in the 'download_image' function#
@@ -153,10 +154,10 @@ def load_news(phrase, directory,browser):
     #Precondition: Receives the used @phrase and the @directory as arguments where the files and images will be saved#
     #Postcondition: Loads the information into the extract_news_data function and then saves it to an Excel file#
 
-    element_title = "xpath://h4[@class='css-2fgx4k']"
+    element_title = "xpath://li[@data-testid='search-bodega-result']//h4"
     element_date = "xpath://span[@data-testid='todays-date']"
-    element_description = "xpath://p[@class='css-16nhkrn']"
-    element_img = "xpath://img[@class='css-rq4mmj']"
+    element_description = "//li[@data-testid='search-bodega-result']//a//p[1]"
+    element_img = "xpath://li[@data-testid='search-bodega-result']//img"
 
     click_show_more(browser)
     
@@ -171,22 +172,23 @@ def load_news(phrase, directory,browser):
 
 def main():
     browser = Selenium()
-    config=init_config("devdata\env.json")
-    url = config["URL"]
-    date_number = config["DATE_NUMBER"]
-    pharase = config["PHARASE"]
-    categories = config["CATEGORIES"] 
-    directory = config["DIRECTORY"] 
+    wi = WorkItems()
+    
+    url = get_work_item(wi,"URL")
+    date_number = get_work_item(wi,"DATE_NUMBER")
+    pharase = get_work_item(wi,"PHARASE")
+    categories = get_work_item(wi,"CATEGORIES") 
+    directory = get_work_item(wi,"DIRECTORY") 
+    
     try:
         today,last=get_date(date_number)
         open_nytimes(url,browser)
         search_for(pharase,browser)
         apply_date(today,last,browser)
-        counter_section=apply_section(categories,browser)
-        if counter_section != 0:
-            load_news(pharase,directory,browser)
-        else:
-            print("No se ingreso ninguna categoria valida")
+        apply_section(categories,browser)
+        load_news(pharase,directory,browser)
+    except SectionNotFoundError as snfe:
+        print(snfe)    
     except TimeoutError as te:
         print("Error: A TimeoutError occurred: ",te)
     except Exception as e:

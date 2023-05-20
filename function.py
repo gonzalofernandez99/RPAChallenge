@@ -3,18 +3,20 @@ from pathlib import Path
 import re
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-
+import os
 
 def create_file_directory(path_directory,phrase,ext):
     #create directory according to month, day, and year, return the file name with the path + phrase + full hour + file extension.#
     now = datetime.now()
     date = now.strftime('%m-%d-%Y')
     hours_and_minutes = now.strftime('%H%M%S-%f')
-    directory = path_directory+"\\"+phrase+"-"+date
-    file = directory+"\\"+phrase+date+hours_and_minutes+"."+ext
-    Path(directory).mkdir(parents=True, exist_ok=True)
+    artifacts_dir = os.path.join(os.getcwd(), path_directory)
+    name_excel = phrase+date+hours_and_minutes+"."+ext
+    Excel = os.path.join(artifacts_dir, name_excel)
+    if not os.path.exists(artifacts_dir):
+        os.makedirs(artifacts_dir)
     
-    return file
+    return Excel
 
 def contains_amount(title, description):
     # Patterns for the money amount formats#
