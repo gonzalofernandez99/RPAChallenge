@@ -4,18 +4,29 @@ import re
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import os
+import shutil
 
-def create_file_directory(path_directory,phrase,ext):
+def create_drectory(path_directory,phrase):
+    now = datetime.now()
+    date = now.strftime('%m-%d-%Y')
+    
+    path_directory_complete =os.path.join(path_directory,phrase+"-"+date)
+    artifacts_dir = os.path.join(os.getcwd(), path_directory_complete)
+    
+    if not os.path.exists(artifacts_dir):
+        os.makedirs(artifacts_dir)
+        
+    return artifacts_dir
+    
+def create_file(path_directory,phrase,ext):
     #create directory according to month, day, and year, return the file name with the path + phrase + full hour + file extension.#
     now = datetime.now()
     date = now.strftime('%m-%d-%Y')
     hours_and_minutes = now.strftime('%H%M%S-%f')
-    artifacts_dir = os.path.join(os.getcwd(), path_directory)
-    name_excel = phrase+date+hours_and_minutes+"."+ext
-    Excel = os.path.join(artifacts_dir, name_excel)
-    if not os.path.exists(artifacts_dir):
-        os.makedirs(artifacts_dir)
     
+    name_excel = phrase+date+hours_and_minutes+"."+ext
+    Excel = os.path.join(path_directory, name_excel)
+   
     return Excel
 
 def contains_amount(title, description):

@@ -2,28 +2,18 @@ from RPA.Browser.Selenium import Selenium
 import time
 import urllib.request
 import re
-from function import create_file_directory
+from function import create_file
 from function import contains_amount
 from function import get_date
-import json
+from function import create_drectory
 from RPA.Excel.Files import Files
 from RPA.Tables import Tables
-import os
 from RPA.Robocorp.WorkItems import WorkItems
+import shutil
 
 class SectionNotFoundError(Exception):
     pass
-
-def get_work_item(wi,key):
-    wi.get_input_work_item()
-    data = wi.get_work_item_variable(key)
-    return data
-
-def init_config(path):
-    with open(path, "r") as f:
-        config = json.load(f)
-    return config
-    
+  
 def open_nytimes(url,browser):
     #Opens the browser and loads the provided URL.
     
@@ -42,7 +32,6 @@ def search_for(pharase,browser):
     browser.input_text(input_pharase,pharase)
     browser.press_keys(input_pharase,"ENTER")
     
-
 
 def apply_date(today,date,browser):
     #Applies the date range in the search filter.
@@ -95,12 +84,13 @@ def click_show_more(browser):
     timeout = 10
     show_more_button= "xpath://button[@data-testid='search-show-more-button']"
     
-    time.sleep(2)
-   
+    time.sleep(1)
+    browser.press_key("tag=body","END")
     while(browser.is_element_enabled(show_more_button,timeout)):
         browser.set_focus_to_element(show_more_button)
         browser.click_element(show_more_button)
-        time.sleep(2)
+        browser.press_key("tag=body","END")
+        time.sleep(1)
         
 def download_image(url, nombre_archivo):
     #Downloads the image from the provided URL and saves it with the given file name.
@@ -112,7 +102,7 @@ def load_excel(pharase,directory,result):
     tables = Tables()
     headers = ["title", "date", "description", "name_file", "number_of_phrases", "contains_money"]
     
-    name_file = create_file_directory(directory,pharase,"xlsx")
+    name_file = create_file(directory,pharase,"xlsx")
     table = tables.create_table(data=result, columns=headers)
     
     ws.create_workbook(path=name_file,sheet_name=pharase,fmt="xlsx")
@@ -131,7 +121,7 @@ def extract_news_data(titles, descriptions, images, dates, phrase, directory):
         date = dates[i+1].text
         src_image = images[i].get_attribute("src")
         
-        name_file = create_file_directory(directory, phrase, "jpg")
+        name_file = create_file(directory, phrase, "jpg")
         download_image(src_image, name_file)
         
         number_of_phrases = len(re.findall(phrase, title + description, re.IGNORECASE))
@@ -173,20 +163,22 @@ def load_news(phrase, directory,browser):
 def main():
     browser = Selenium()
     wi = WorkItems()
-    
-    url = get_work_item(wi,"URL")
-    date_number = get_work_item(wi,"DATE_NUMBER")
-    pharase = get_work_item(wi,"PHARASE")
-    categories = get_work_item(wi,"CATEGORIES") 
-    directory = get_work_item(wi,"DIRECTORY") 
+    wi.get_input_work_item()
+    url = wi.get_work_item_variable("URL")
+    date_number = wi.get_work_item_variable("DATE_NUMBER")
+    pharase = wi.get_work_item_variable("PHARASE")
+    categories = wi.get_work_item_variable("CATEGORIES") 
+    directory = wi.get_work_item_variable("DIRECTORY") 
     
     try:
         today,last=get_date(date_number)
+        artifacts_dir=create_drectory(directory,pharase)
         open_nytimes(url,browser)
         search_for(pharase,browser)
         apply_date(today,last,browser)
         apply_section(categories,browser)
-        load_news(pharase,directory,browser)
+        load_news(pharase,artifacts_dir,browser)
+        shutil.make_archive(artifacts_dir, 'zip', artifacts_dir)
     except SectionNotFoundError as snfe:
         print(snfe)    
     except TimeoutError as te:
