@@ -4,9 +4,9 @@ import re
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import os
-import shutil
 
-def create_drectory(path_directory,phrase):
+def create_directory(path_directory,phrase):
+    #create directory
     now = datetime.now()
     date = now.strftime('%m-%d-%Y')
     
@@ -19,7 +19,7 @@ def create_drectory(path_directory,phrase):
     return artifacts_dir
     
 def create_file(path_directory,phrase,ext):
-    #create directory according to month, day, and year, return the file name with the path + phrase + full hour + file extension.#
+    #create file according to month, day, and year, return the file name with the path + phrase + full hour + file extension.#
     now = datetime.now()
     date = now.strftime('%m-%d-%Y')
     hours_and_minutes = now.strftime('%H%M%S-%f')

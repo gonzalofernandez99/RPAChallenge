@@ -5,7 +5,7 @@ import re
 from function import create_file
 from function import contains_amount
 from function import get_date
-from function import create_drectory
+from function import create_directory
 from RPA.Excel.Files import Files
 from RPA.Tables import Tables
 from RPA.Robocorp.WorkItems import WorkItems
@@ -172,7 +172,7 @@ def main():
     
     try:
         today,last=get_date(date_number)
-        artifacts_dir=create_drectory(directory,pharase)
+        artifacts_dir=create_directory(directory,pharase)
         open_nytimes(url,browser)
         search_for(pharase,browser)
         apply_date(today,last,browser)
